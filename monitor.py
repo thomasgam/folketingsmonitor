@@ -335,16 +335,21 @@ def build_report(matches: list[Match], checked_counts: dict[str, int], errors: l
 # ---------------------------------------------------------------------------
 
 def maybe_send_email(subject: str, body_markdown: str) -> None:
+    # Bemærk: GitHub Actions sætter miljøvariabler for ikke-udfyldte secrets til en
+    # TOM streng (""), ikke til at de mangler helt. Derfor bruges "or" i stedet for
+    # dict.get()'s default-parameter nedenfor — ellers ville fx SMTP_PORT="" aldrig
+    # falde tilbage til "587", og int("") ville fejle med en uventet exception.
     host = os.environ.get("SMTP_HOST")
     user = os.environ.get("SMTP_USER")
     password = os.environ.get("SMTP_PASS")
     mail_to = os.environ.get("MAIL_TO")
-    mail_from = os.environ.get("MAIL_FROM", user)
-    port = int(os.environ.get("SMTP_PORT", "587"))
 
     if not all([host, user, password, mail_to]):
         print("SMTP ikke konfigureret (mangler en eller flere af SMTP_HOST/SMTP_USER/SMTP_PASS/MAIL_TO) – springer e-mail over.")
         return
+
+    mail_from = os.environ.get("MAIL_FROM") or user
+    port = int(os.environ.get("SMTP_PORT") or "587")
 
     msg = MIMEText(body_markdown, "plain", "utf-8")
     msg["Subject"] = subject
