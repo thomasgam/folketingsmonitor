@@ -1,0 +1,48 @@
+name: Daglig tjek – TV2 Østjylland i Folketinget
+
+on:
+  schedule:
+    # 04:00 UTC = ca. kl. 06:00 dansk sommertid (CEST). Om vinteren (CET)
+    # bliver det ca. kl. 05:00 dansk tid, da GitHub Actions cron ikke selv
+    # justerer for sommer-/vintertid. Ret timen herunder, hvis det driller.
+    - cron: "0 4 * * *"
+  workflow_dispatch: {}  # gør det muligt at køre manuelt fra "Actions"-fanen
+
+permissions:
+  contents: write  # nødvendigt for at kunne committe rapporten og state.json tilbage
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Hent repo
+        uses: actions/checkout@v4
+
+      - name: Sæt Python op
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Installér afhængigheder
+        run: pip install -r requirements.txt
+
+      - name: Kør daglig tjek
+        env:
+          # Udfyld disse som "Repository secrets" under Settings → Secrets and
+          # variables → Actions, hvis/når I vil have scriptet til også at sende
+          # e-mail. Uden dem skriver scriptet blot rapporten til reports/-mappen.
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          MAIL_FROM: ${{ secrets.MAIL_FROM }}
+          MAIL_TO: ${{ secrets.MAIL_TO }}
+        run: python monitor.py
+
+      - name: Commit og push rapport + state
+        run: |
+          git config user.name "folketingsmonitor-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add reports/ state.json
+          git diff --quiet --cached || git commit -m "Dagligt tjek: $(date -u +'%Y-%m-%d')"
+          git push
