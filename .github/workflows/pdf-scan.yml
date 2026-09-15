@@ -1,0 +1,40 @@
+name: PDF-dybdescan – TV2 Østjylland i Folketinget
+
+on:
+  schedule:
+    # Kører én gang dagligt, ca. kl. 07:00 dansk sommertid (05:00 UTC).
+    # Se README for bemærkning om sommer-/vintertid.
+    - cron: "0 5 * * *"
+  workflow_dispatch: {}  # kør manuelt fra "Actions"-fanen til test
+
+permissions:
+  contents: write
+
+jobs:
+  pdf-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Hent repo
+        uses: actions/checkout@v4
+
+      - name: Sæt Python op
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Installér afhængigheder
+        run: pip install -r requirements.txt
+
+      - name: Installér Playwright + Chromium
+        run: playwright install --with-deps chromium
+
+      - name: Kør PDF-dybdescan
+        run: python pdf_scanner.py
+
+      - name: Commit og push rapport + seen-liste
+        run: |
+          git config user.name "folketingsmonitor-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add reports/ pdf_seen.json
+          git diff --quiet --cached || git commit -m "PDF-dybdescan: $(date -u +'%Y-%m-%d %H:%M')"
+          git push
